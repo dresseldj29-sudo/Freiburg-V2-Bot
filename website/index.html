@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freiburg V2 | Control Center</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b1020;
+  --panel: #131d33;
+  --line: #283652;
+  --text: #edf2ff;
+  --muted: #9caaca;
+  --accent: #8996ff;
+  --green: #63e6a3;
+  --red: #ff8181;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  background: radial-gradient(ellipse at top, #1b2b50, var(--bg) 60%);
+  color: var(--text);
+  min-height: 100vh;
+}
+header, main, footer {
+  width: min(1080px, calc(100% - 32px));
+  margin: auto;
+}
+header {
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-size: 21px; font-weight: 900; }
+.brand span { color: var(--accent); }
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+main { padding-top: 34px; }
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #b0baff;
+  font-size: 12px;
+  font-weight: 800;
+}
+h1 { font-size: clamp(30px, 5vw, 48px); margin: 10px 0; }
+h2 { font-size: 19px; margin-top: 0; }
+p { color: var(--muted); line-height: 1.6; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+  gap: 15px;
+  margin: 24px 0;
+}
+.card {
+  background: linear-gradient(145deg, #17233e, #11192b);
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  padding: 21px;
+  margin-bottom: 16px;
+  box-shadow: 0 12px 30px #0002;
+}
+.label { font-size: 12px; color: var(--muted); }
+.value { font-size: 29px; font-weight: 850; margin: 12px 0 7px; }
+.sub { font-size: 12px; color: var(--muted); }
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+button, input {
+  font: inherit;
+  border-radius: 9px;
+  padding: 11px 12px;
+}
+button {
+  border: 0;
+  background: var(--accent);
+  color: #0a1020;
+  font-weight: 800;
+  cursor: pointer;
+}
+button.danger { background: #ff8b8b; }
+button.secondary {
+  background: #263653;
+  color: var(--text);
+  border: 1px solid #364969;
+}
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #0b1325;
+  color: var(--text);
+  margin: 5px 0 12px;
+}
+form { max-width: 440px; }
+.list { display: grid; gap: 9px; }
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c1427;
+}
+.muted { color: var(--muted); }
+.notice { font-size: 13px; min-height: 20px; color: var(--muted); }
+.hidden { display: none !important; }
+footer {
+  margin-top: 28px;
+  padding: 20px 0 30px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">FREIBURG <span>V2</span></div>
+  <div class="pill">ESX Legacy · Control Center</div>
+</header>
+
+<main>
+  <section>
+    <div class="eyebrow">Server dashboard</div>
+    <h1 id="serverName">Freiburg V2</h1>
+    <p>Serverstatus, Spielerinformationen und Teamverwaltung.</p>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <div class="label">SERVERSTATUS</div>
+      <div class="value" id="online">Prüfe …</div>
+      <div class="sub" id="checked">Warte auf API</div>
+    </div>
+    <div class="card">
+      <div class="label">SPIELER ONLINE</div>
+      <div class="value" id="playerCount">—</div>
+      <div class="sub">Aktuelle Spielerzahl</div>
+    </div>
+    <div class="card">
+      <div class="label">SPIELMODUS</div>
+      <div class="value" id="gameType">—</div>
+      <div class="sub" id="mapName">Karte: —</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <h2>Spielerliste</h2>
+      <button id="refresh" class="secondary">Aktualisieren</button>
+    </div>
+    <div id="players" class="list">
+      <div class="muted">Spielerliste wird geladen …</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Admin-Anmeldung</h2>
+    <p>Nur für berechtigte Teammitglieder. Teile das Admin-Passwort nicht.</p>
+
+    <form id="loginForm">
+      <label for="password">Admin-Passwort</label>
+      <input id="password" type="password" autocomplete="current-password"
+        required maxlength="200">
+      <button type="submit">Anmelden</button>
+      <button type="button" id="logout" class="secondary hidden">Abmelden</button>
+    </form>
+
+    <div class="notice" id="loginMessage" role="status"></div>
+  </section>
+
+  <section class="card hidden" id="adminPanel">
+    <h2>Teamverwaltung</h2>
+    <p>Teammitglieder hinzufügen oder entfernen.</p>
+
+    <form id="teamForm">
+      <label for="memberName">Name</label>
+      <input id="memberName" maxlength="60" required placeholder="Teammitglied">
+
+      <label for="memberRole">Rolle</label>
+      <input id="memberRole" maxlength="60" required placeholder="z. B. Supporter">
+
+      <button type="submit">Teammitglied hinzufügen</button>
+    </form>
+
+    <div class="notice" id="teamMessage" role="status"></div>
+    <div class="list" id="teamList"></div>
+  </section>
+
+  <p class="muted">
+    Hinweis: Die Spielerübersicht zeigt öffentlich abrufbare Namen, IDs und Ping-Werte.
+    Keine privaten Spielerkennungen werden absichtlich ausgegeben.
+  </p>
+</main>
+
+<footer>
+  Freiburg V2 · Community Control Center · Statusdaten können bei
+  Netzwerkproblemen verzögert oder nicht verfügbar sein.
+</footer>
+
+<script>
+/*
+  Nach dem Hosting hier die URL deiner Bot/API eintragen.
+  Beispiel: https://freiburg-v2-api.onrender.com
+*/
+const API_BASE = "https://DEINE-API-URL.onrender.com";
+
+const $ = id => document.getElementById(id);
+let adminToken = sessionStorage.getItem("fvv2_admin_token") || "";
+
+async function api(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {})
+  };
+
+  if (adminToken) {
+    headers.Authorization = `Bearer ${adminToken}`;
+  }
+
+  const response = await fetch(API_BASE + path, {
+    ...options,
+    headers,
+    cache: "no-store"
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+async function loadStatus() {
+  try {
+    const status = await api("/api/status");
+    $("serverName").textContent = status.name || "Freiburg V2";
+    $("online").textContent = status.online ? "ONLINE" : "OFFLINE";
+    $("online").style.color = status.online ? "var(--green)" : "var(--red)";
+    $("playerCount").textContent = status.online
+      ? `${status.players} / ${status.maxPlayers || "?"}`
+      : "—";
+    $("gameType").textContent = status.gameType || "—";
+    $("mapName").textContent = `Karte: ${status.map || "—"}`;
+    $("checked").textContent =
+      "Zuletzt geprüft: " +
+      new Date(status.checkedAt).toLocaleTimeString("de-DE");
+  } catch {
+    $("online").textContent = "API offline";
+    $("online").style.color = "var(--red)";
+    $("checked").textContent = "API-Adresse oder Verbindung prüfen.";
+  }
+}
+
+async function loadPlayers() {
+  const container = $("players");
+
+  try {
+    const result = await api("/api/players");
+    container.replaceChildren();
+
+    if (!result.players.length) {
+      container.textContent = "Keine Spieler online oder Liste nicht verfügbar.";
+      return;
+    }
+
+    result.players.slice(0, 100).forEach(player => {
+      const item = document.createElement("div");
+      item.className = "item";
+
+      const name = document.createElement("span");
+      name.textContent = `#${player.id} · ${player.name}`;
+
+      const ping = document.createElement("span");
+      ping.className = "muted";
+      ping.textContent = `${player.ping} ms`;
+
+      item.append(name, ping);
+      container.append(item);
+    });
+  } catch {
+    container.textContent = "Spielerliste nicht verfügbar.";
+  }
+}
+
+async function loadTeam() {
+  const result = await api("/api/admin/team");
+  const container = $("teamList");
+  container.replaceChildren();
+
+  if (!result.team.length) {
+    container.textContent = "Noch keine Teammitglieder eingetragen.";
+    return;
+  }
+
+  result.team.forEach(member => {
+    const item = document.createElement("div");
+    item.className = "item";
+
+    const info = document.createElement("span");
+    info.textContent = `${member.name} · ${member.role}`;
+
+    const remove = document.createElement("button");
+    remove.className = "danger";
+    remove.textContent = "Entfernen";
+    remove.addEventListener("click", async () => {
+      if (!confirm(`Teammitglied ${member.name} entfernen?`)) return;
+
+      try {
+        await api(`/api/admin/team/${encodeURIComponent(member.id)}`, {
+          method: "DELETE"
+        });
+        await loadTeam();
+      } catch (error) {
+        $("teamMessage").textContent = error.message;
+      }
+    });
+
+    item.append(info, remove);
+    container.append(item);
+  });
+}
+
+function showAdmin() {
+  $("adminPanel").classList.toggle("hidden", !adminToken);
+  $("logout").classList.toggle("hidden", !adminToken);
+}
+
+$("loginForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  $("loginMessage").textContent = "Anmeldung wird geprüft …";
+
+  try {
+    const result = await api("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify({ password: $("password").value }),
+      headers: {}
+    });
+
+    adminToken = result.token;
+    sessionStorage.setItem("fvv2_admin_token", adminToken);
+    $("password").value = "";
+    $("loginMessage").textContent = "Anmeldung erfolgreich.";
+    showAdmin();
+    await loadTeam();
+  } catch (error) {
+    $("loginMessage").textContent = error.message;
+  }
+});
+
+$("logout").addEventListener("click", () => {
+  adminToken = "";
+  sessionStorage.removeItem("fvv2_admin_token");
+  $("loginMessage").textContent = "Abgemeldet.";
+  $("teamList").replaceChildren();
+  showAdmin();
+});
+
+$("teamForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  try {
+    await api("/api/admin/team", {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("memberName").value.trim(),
+        role: $("memberRole").value.trim()
+      })
+    });
+
+    $("memberName").value = "";
+    $("memberRole").value = "";
+    $("teamMessage").textContent = "Teammitglied gespeichert.";
+    await loadTeam();
+  } catch (error) {
+    $("teamMessage").textContent = error.message;
+  }
+});
+
+$("refresh").addEventListener("click", async () => {
+  await Promise.all([loadStatus(), loadPlayers()]);
+});
+
+async function refresh() {
+  await Promise.all([loadStatus(), loadPlayers()]);
+}
+
+showAdmin();
+refresh();
+
+if (adminToken) {
+  loadTeam().catch(() => {
+    adminToken = "";
+    sessionStorage.removeItem("fvv2_admin_token");
+    showAdmin();
+  });
+}
+
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
