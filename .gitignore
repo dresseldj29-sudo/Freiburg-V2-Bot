@@ -1,4 +1,0 @@
-node_modules/
-.env
-daten/*.tmp
-npm-debug.log*
