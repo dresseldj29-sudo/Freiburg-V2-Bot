@@ -30,7 +30,7 @@ async function playNext(guildId){
  if(!q||!q.songs.length){if(q)q.playing=false;return false;}
  const song=q.songs[0];
  try{
-  if(!/^https?:\\/\\//i.test(song.url))throw new Error('Ungültige Musikquelle');
+  if(!/^https?:\/\//i.test(song.url))throw new Error('Ungültige Musikquelle');
   const stream=await play.stream(song.url);
   if(!stream?.stream)throw new Error('YouTube hat keinen Audiostream geliefert.');
   const resource=createAudioResource(stream.stream,{inputType:stream.type,inlineVolume:true});
