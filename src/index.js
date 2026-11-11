@@ -26,16 +26,22 @@ function getQueue(guildId){
  return musicQueues.get(guildId);
 }
 async function playNext(guildId){
- const q=musicQueues.get(guildId);if(!q||!q.songs.length){if(q)q.playing=false;return;}
+ const q=musicQueues.get(guildId);
+ if(!q||!q.songs.length){if(q)q.playing=false;return false;}
  const song=q.songs[0];
  try{
-  let stream;
-  if(song.url.startsWith('http')) stream=await play.stream(song.url);
-  else throw new Error('Ungültige Musikquelle');
+  if(!/^https?:\\/\\//i.test(song.url))throw new Error('Ungültige Musikquelle');
+  const stream=await play.stream(song.url);
+  if(!stream?.stream)throw new Error('YouTube hat keinen Audiostream geliefert.');
   const resource=createAudioResource(stream.stream,{inputType:stream.type,inlineVolume:true});
   resource.volume.setVolume(q.volume);
-  q.player.play(resource);q.playing=true;
- }catch(e){console.error('Song konnte nicht abgespielt werden:',e.message);q.songs.shift();await playNext(guildId);}
+  q.player.play(resource);q.playing=true;return true;
+ }catch(e){
+  console.error('Song konnte nicht abgespielt werden:',e.message);
+  q.songs.shift();q.playing=false;
+  if(q.songs.length)return playNext(guildId);
+  return false;
+ }
 }
 async function connectVoice(i){
  const vc=i.member?.voice?.channel;
@@ -130,18 +136,30 @@ client.on('interactionCreate',async i=>{
    const cmd=i.commandName;
    if(cmd==='ping')return i.reply({content:`🏓 Pong! ${client.ws.ping} ms`,ephemeral:true});
    if(cmd==='status')return i.reply({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('Freiburg V2 • Botstatus').addFields({name:'Bot',value:'🟢 Online',inline:true},{name:'Ping',value:`${client.ws.ping} ms`,inline:true},{name:'Server',value:i.guild.name,inline:true},{name:'Laufzeit',value:`${Math.floor(process.uptime()/3600)} Stunden`,inline:true})],ephemeral:true});
-   if(cmd==='ply'){
+   if(cmd==='ply'||cmd==='play'){
     await i.deferReply();
     try{
-     const q=await connectVoice(i),query=i.options.getString('song',true);
-     // Die Suche von play-dl verwendet YouTube als Standardsuchquelle.
-     // Es werden ausschließlich echte YouTube-Videoergebnisse in die Queue übernommen.
-     const results=await play.search(query,{limit:5});
-     const r=results.find(video=>video.url && /(^https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(video.url));
-     if(!r)throw new Error('Auf YouTube wurde kein passendes Video gefunden. Bitte einen anderen Titel oder YouTube-Link versuchen.');
-     const song={title:r.title||query,url:r.url,duration:r.durationRaw||'unbekannt',requestedBy:i.user.id,source:'YouTube'};
+     const q=await connectVoice(i),query=i.options.getString('song',true).trim();
+     if(!query)throw new Error('Bitte gib einen Songtitel oder YouTube-Link ein.');
+     let song;
+     const isYouTubeUrl=/^https?:\\/\\/(www\\.)?(youtube\\.com\\/(watch|shorts)|youtu\\.be\\/)/i.test(query);
+     if(isYouTubeUrl){
+      song={title:query,url:query,duration:'unbekannt',requestedBy:i.user.id,source:'YouTube'};
+     }else{
+      // Freitext wie „Interpret - Titel“ wird über die YouTube-Suche aufgelöst.
+      const results=await play.search(query,{limit:10});
+      const videos=results.filter(video=>video.url&&/^https?:\\/\\/(www\\.)?(youtube\\.com|youtu\\.be)\\//i.test(video.url));
+      if(!videos.length)throw new Error('Kein passender Song gefunden. Versuche „Interpret - Titel“ oder einen YouTube-Link.');
+      const words=query.toLocaleLowerCase('de').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').split(/[^a-z0-9]+/).filter(w=>w.length>1);
+      const ranked=videos.map(video=>({video,score:words.reduce((n,w)=>n+(video.title||'').toLocaleLowerCase('de').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').includes(w)?1:0,0)})).sort((a,b)=>b.score-a.score);
+      const best=ranked[0].video;
+      song={title:best.title||query,url:best.url,duration:best.durationRaw||'unbekannt',requestedBy:i.user.id,source:'YouTube'};
+     }
      q.songs.push(song);
-     if(!q.playing&&q.songs.length===1)await playNext(i.guildId);
+     if(!q.playing&&q.songs.length===1){
+      const started=await playNext(i.guildId);
+      if(!started)throw new Error('Der Song wurde gefunden, aber YouTube hat keinen abspielbaren Audiostream geliefert. Bitte versuche einen anderen Treffer oder Link.');
+     }
      log('Musik angefordert',`${song.title} • von ${i.user.tag}`,i.user.tag);
      return i.editReply({embeds:[new EmbedBuilder().setColor(RED).setTitle(q.songs.length===1?'▶️ Wiedergabe gestartet':'➕ Zur Warteschlange hinzugefügt').setDescription(`**${esc(song.title)}**\nDauer: ${esc(song.duration)}\nAngefordert von: ${i.user}`).setFooter({text:'Freiburg V2 Music'})]});
     }catch(e){return i.editReply(`❌ ${e.message}`);}
