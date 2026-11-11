@@ -20,7 +20,8 @@ const commands=[
  new SlashCommandBuilder().setName('ban').setDescription('Bannt ein Mitglied').addUserOption(o=>o.setName('mitglied').setDescription('Mitglied').setRequired(true)).addStringOption(o=>o.setName('grund').setDescription('Grund').setRequired(false)).setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
  new SlashCommandBuilder().setName('verwarnen').setDescription('Dokumentiert eine Verwarnung').addUserOption(o=>o.setName('mitglied').setDescription('Mitglied').setRequired(true)).addStringOption(o=>o.setName('grund').setDescription('Grund').setRequired(true)).setDefaultMemberPermissions(admin),
 
- new SlashCommandBuilder().setName('ply').setDescription('Spielt einen Song im verbundenen Voice-Channel ab').addStringOption(o=>o.setName('song').setDescription('Songtitel oder unterstützter Musiklink').setRequired(true)),
+ new SlashCommandBuilder().setName('ply').setDescription('Sucht einen Songtitel auf YouTube und spielt ihn ab').addStringOption(o=>o.setName('song').setDescription('Songtitel, Interpret oder YouTube-Link').setRequired(true)),
+ new SlashCommandBuilder().setName('play').setDescription('Alias: Sucht einen Songtitel auf YouTube und spielt ihn ab').addStringOption(o=>o.setName('song').setDescription('Songtitel, Interpret oder YouTube-Link').setRequired(true)),
  new SlashCommandBuilder().setName('skip').setDescription('Überspringt den aktuellen Song'),
  new SlashCommandBuilder().setName('stop').setDescription('Stoppt die Musik und leert die Warteschlange'),
  new SlashCommandBuilder().setName('pause').setDescription('Pausiert die Wiedergabe'),
