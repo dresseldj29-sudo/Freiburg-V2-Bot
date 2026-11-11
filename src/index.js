@@ -142,16 +142,16 @@ client.on('interactionCreate',async i=>{
      const q=await connectVoice(i),query=i.options.getString('song',true).trim();
      if(!query)throw new Error('Bitte gib einen Songtitel oder YouTube-Link ein.');
      let song;
-     const isYouTubeUrl=/^https?:\\/\\/(www\\.)?(youtube\\.com\\/(watch|shorts)|youtu\\.be\\/)/i.test(query);
+     const isYouTubeUrl=/^https?:\/\/(www\.)?(youtube\.com\/(watch|shorts)|youtu\.be\/)/i.test(query);
      if(isYouTubeUrl){
       song={title:query,url:query,duration:'unbekannt',requestedBy:i.user.id,source:'YouTube'};
      }else{
       // Freitext wie „Interpret - Titel“ wird über die YouTube-Suche aufgelöst.
       const results=await play.search(query,{limit:10});
-      const videos=results.filter(video=>video.url&&/^https?:\\/\\/(www\\.)?(youtube\\.com|youtu\\.be)\\//i.test(video.url));
+      const videos=results.filter(video=>video.url&&/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(video.url));
       if(!videos.length)throw new Error('Kein passender Song gefunden. Versuche „Interpret - Titel“ oder einen YouTube-Link.');
-      const words=query.toLocaleLowerCase('de').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').split(/[^a-z0-9]+/).filter(w=>w.length>1);
-      const ranked=videos.map(video=>({video,score:words.reduce((n,w)=>n+(video.title||'').toLocaleLowerCase('de').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').includes(w)?1:0,0)})).sort((a,b)=>b.score-a.score);
+      const words=query.toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^a-z0-9]+/).filter(w=>w.length>1);
+      const ranked=videos.map(video=>({video,score:words.reduce((n,w)=>n+(video.title||'').toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(w)?1:0,0)})).sort((a,b)=>b.score-a.score);
       const best=ranked[0].video;
       song={title:best.title||query,url:best.url,duration:best.durationRaw||'unbekannt',requestedBy:i.user.id,source:'YouTube'};
      }
