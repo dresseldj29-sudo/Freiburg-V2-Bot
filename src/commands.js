@@ -22,6 +22,7 @@ const commands=[
 
  new SlashCommandBuilder().setName('ply').setDescription('Sucht einen Songtitel auf YouTube und spielt ihn ab').addStringOption(o=>o.setName('song').setDescription('Songtitel, Interpret oder YouTube-Link').setRequired(true)),
  new SlashCommandBuilder().setName('play').setDescription('Alias: Sucht einen Songtitel auf YouTube und spielt ihn ab').addStringOption(o=>o.setName('song').setDescription('Songtitel, Interpret oder YouTube-Link').setRequired(true)),
+ new SlashCommandBuilder().setName('radio').setDescription('Startet den Freiburg V2 YouTube Radio-Mix'),
  new SlashCommandBuilder().setName('skip').setDescription('Überspringt den aktuellen Song'),
  new SlashCommandBuilder().setName('stop').setDescription('Stoppt die Musik und leert die Warteschlange'),
  new SlashCommandBuilder().setName('pause').setDescription('Pausiert die Wiedergabe'),
