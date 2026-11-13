@@ -163,7 +163,7 @@ client.on('interactionCreate',async i=>{
       song={title:query,url:query,duration:'unbekannt',requestedBy:i.user.id,source:'YouTube'};
      }else{
       // Freitext wie „Interpret - Titel“ wird über die YouTube-Suche aufgelöst.
-      const results=await play.search(query,{limit:10});
+      const results=await play.search(query,{limit:20});
       const videos=results.filter(video=>video.url&&/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(video.url));
       if(!videos.length)throw new Error('Kein passender Song gefunden. Versuche „Interpret - Titel“ oder einen YouTube-Link.');
       const words=query.toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^a-z0-9]+/).filter(w=>w.length>1);
