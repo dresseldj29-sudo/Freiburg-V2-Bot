@@ -65,10 +65,38 @@ async function connectVoice(i){
  const q=getQueue(i.guildId);
  if(q.connection&&q.connection.joinConfig.channelId!==vc.id){q.connection.destroy();q.connection=null;}
  if(!q.connection){
-  q.connection=joinVoiceChannel({channelId:vc.id,guildId:i.guildId,adapterCreator:i.guild.voiceAdapterCreator,selfDeaf:true});
-  q.connection.subscribe(q.player);
-  q.connection.on(VoiceConnectionStatus.Disconnected,async()=>{try{await Promise.race([entersState(q.connection,VoiceConnectionStatus.Signalling,5000),entersState(q.connection,VoiceConnectionStatus.Connecting,5000)]);}catch{q.connection?.destroy();q.connection=null;}});
-  await entersState(q.connection,VoiceConnectionStatus.Ready,20000);
+  const connection=joinVoiceChannel({channelId:vc.id,guildId:i.guildId,adapterCreator:i.guild.voiceAdapterCreator,selfDeaf:true});
+  q.connection=connection;
+  connection.subscribe(q.player);
+  connection.on('stateChange',(oldState,newState)=>console.log(`[Voice] ${oldState.status} -> ${newState.status} | Kanal ${vc.id}`));
+  connection.on('debug',message=>console.log('[Voice Debug]',message));
+  connection.on('error',error=>console.error('[Voice Error]',error?.stack||error));
+  connection.on(VoiceConnectionStatus.Disconnected,async()=>{
+   try{
+    await Promise.race([
+     entersState(connection,VoiceConnectionStatus.Signalling,5000),
+     entersState(connection,VoiceConnectionStatus.Connecting,5000)
+    ]);
+   }catch(error){
+    console.error('[Voice] Verbindung dauerhaft getrennt:',error?.message||error);
+    connection.destroy();
+    if(q.connection===connection)q.connection=null;
+   }
+  });
+ }
+ if(q.connection.state.status!==VoiceConnectionStatus.Ready){
+  const connection=q.connection;
+  try{
+   await entersState(connection,VoiceConnectionStatus.Ready,30000);
+  }catch(error){
+   const state=connection.state?.status||'unbekannt';
+   console.error(`[Voice] READY-Timeout; letzter Status: ${state}`,error?.stack||error);
+   connection.destroy();
+   if(q.connection===connection)q.connection=null;
+   const failure=new Error(`DISCORD_VOICE_TIMEOUT: Discord-Sprachverbindung wurde nicht bereit (Status: ${state}). Bitte prüfe Voice-Berechtigungen und ob der Hosting-Anbieter UDP-Verbindungen zulässt.`);
+   failure.code='DISCORD_VOICE_TIMEOUT';
+   throw failure;
+  }
  }
  return q;
 }
@@ -193,7 +221,7 @@ client.on('interactionCreate',async i=>{
      }
      log('Musik angefordert',`${song.title} • von ${i.user.tag}`,i.user.tag);
      return i.editReply({embeds:[new EmbedBuilder().setColor(RED).setTitle(q.songs.length===1?'▶️ Wiedergabe gestartet':'➕ Zur Warteschlange hinzugefügt').setDescription(`**${esc(song.title)}**\nDauer: ${esc(song.duration)}\nAngefordert von: ${i.user}`).setFooter({text:'Freiburg V2 Music'})]});
-    }catch(e){console.error('Musikbefehl fehlgeschlagen:',e?.stack||e);const msg=(e?.name==='AbortError'||/operation was aborted|aborted/i.test(String(e?.message)))?'YouTube hat die Anfrage abgebrochen. Der Bot hat die Anfrage erneut versucht. Bitte probiere es gleich noch einmal.':(e?.message||'Unbekannter Musikfehler');return i.editReply(`❌ ${msg}`);}
+    }catch(e){console.error('Musikbefehl fehlgeschlagen:',e?.stack||e);const msg=e?.code==='DISCORD_VOICE_TIMEOUT'?e.message:(e?.name==='AbortError'||/operation was aborted|aborted/i.test(String(e?.message)))?'Eine Anfrage wurde abgebrochen. Prüfe die Railway-Logs für den betroffenen Schritt.':(e?.message||'Unbekannter Musikfehler');return i.editReply(`❌ ${msg}`);}
    }
    if(cmd==='skip'||cmd==='stop'||cmd==='pause'||cmd==='resume'||cmd==='queue'||cmd==='leave'||cmd==='volume'){
     const q=musicQueues.get(i.guildId);
