@@ -16,6 +16,21 @@ const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.Gui
 const RED=0xB3262D, GREEN=0x248046;
 const musicQueues=new Map();
 const RADIO_URL='https://www.youtube.com/watch?v=zaSZE194D4I&list=RDzaSZE194D4I&start_radio=1';
+async function retryMusic(task,label,attempts=3){
+ let last;
+ for(let attempt=1;attempt<=attempts;attempt++){
+  try{return await task();}
+  catch(error){
+   last=error;
+   const message=String(error?.message||error);
+   const transient=error?.name==='AbortError'||/aborted|timeout|timed out|fetch failed|network|ECONNRESET|ETIMEDOUT/i.test(message);
+   console.error(`Musik ${label} Versuch ${attempt}/${attempts} fehlgeschlagen:`,error?.stack||message);
+   if(!transient||attempt===attempts)break;
+   await new Promise(resolve=>setTimeout(resolve,700*attempt));
+  }
+ }
+ throw last;
+}
 function getQueue(guildId){
  if(!musicQueues.has(guildId)){
   const player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
@@ -32,7 +47,7 @@ async function playNext(guildId){
  const song=q.songs[0];
  try{
   if(!/^https?:\/\//i.test(song.url))throw new Error('Ungültige Musikquelle');
-  const stream=await play.stream(song.url);
+  const stream=await retryMusic(()=>play.stream(song.url),'Audiostream');
   if(!stream?.stream)throw new Error('YouTube hat keinen Audiostream geliefert.');
   const resource=createAudioResource(stream.stream,{inputType:stream.type,inlineVolume:true});
   resource.volume.setVolume(q.volume);
@@ -144,8 +159,8 @@ client.on('interactionCreate',async i=>{
       if(cmd==='radio'){
        q.radioLoading=true;q.songs=[];q.player.stop(true);
        try{
-        const playlist=await play.playlist_info(RADIO_URL,{incomplete:true});
-        const videos=typeof playlist.all_videos==='function'?await playlist.all_videos():(playlist.videos||[]);
+        const playlist=await retryMusic(()=>play.playlist_info(RADIO_URL,{incomplete:true}),'Radio-Playlist');
+        const videos=typeof playlist.all_videos==='function'?await retryMusic(()=>playlist.all_videos(),'Radio-Titelliste'):(playlist.videos||[]);
         const tracks=videos.filter(v=>v&&v.url).map(v=>({title:v.title||'Unbekannter Titel',url:v.url,duration:v.durationRaw||'unbekannt',requestedBy:i.user.id,source:'YouTube Radio'}));
         if(!tracks.length)throw new Error('YouTube hat aus diesem Radio-Mix keine Titel geliefert.');
         q.songs.push(...tracks);
@@ -163,7 +178,7 @@ client.on('interactionCreate',async i=>{
       song={title:query,url:query,duration:'unbekannt',requestedBy:i.user.id,source:'YouTube'};
      }else{
       // Freitext wie „Interpret - Titel“ wird über die YouTube-Suche aufgelöst.
-      const results=await play.search(query,{limit:20});
+      const results=await retryMusic(()=>play.search(query,{limit:20}),'Titelsuche');
       const videos=results.filter(video=>video.url&&/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(video.url));
       if(!videos.length)throw new Error('Kein passender Song gefunden. Versuche „Interpret - Titel“ oder einen YouTube-Link.');
       const words=query.toLocaleLowerCase('de').normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^a-z0-9]+/).filter(w=>w.length>1);
@@ -178,7 +193,7 @@ client.on('interactionCreate',async i=>{
      }
      log('Musik angefordert',`${song.title} • von ${i.user.tag}`,i.user.tag);
      return i.editReply({embeds:[new EmbedBuilder().setColor(RED).setTitle(q.songs.length===1?'▶️ Wiedergabe gestartet':'➕ Zur Warteschlange hinzugefügt').setDescription(`**${esc(song.title)}**\nDauer: ${esc(song.duration)}\nAngefordert von: ${i.user}`).setFooter({text:'Freiburg V2 Music'})]});
-    }catch(e){return i.editReply(`❌ ${e.message}`);}
+    }catch(e){console.error('Musikbefehl fehlgeschlagen:',e?.stack||e);const msg=(e?.name==='AbortError'||/operation was aborted|aborted/i.test(String(e?.message)))?'YouTube hat die Anfrage abgebrochen. Der Bot hat die Anfrage erneut versucht. Bitte probiere es gleich noch einmal.':(e?.message||'Unbekannter Musikfehler');return i.editReply(`❌ ${msg}`);}
    }
    if(cmd==='skip'||cmd==='stop'||cmd==='pause'||cmd==='resume'||cmd==='queue'||cmd==='leave'||cmd==='volume'){
     const q=musicQueues.get(i.guildId);
