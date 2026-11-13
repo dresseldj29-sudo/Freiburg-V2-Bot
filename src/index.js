@@ -15,11 +15,12 @@ if(!process.env.DISCORD_TOKEN||!process.env.CLIENT_ID||!process.env.GUILD_ID){
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildVoiceStates],partials:[Partials.Channel]});
 const RED=0xB3262D, GREEN=0x248046;
 const musicQueues=new Map();
+const RADIO_URL='https://www.youtube.com/watch?v=zaSZE194D4I&list=RDzaSZE194D4I&start_radio=1';
 function getQueue(guildId){
  if(!musicQueues.has(guildId)){
   const player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
-  const q={songs:[],connection:null,player,volume:0.5,playing:false};
-  player.on(AudioPlayerStatus.Idle,()=>{q.playing=false;q.songs.shift();playNext(guildId).catch(e=>console.error('Musik:',e));});
+  const q={songs:[],connection:null,player,volume:0.5,playing:false,radioLoading:false};
+  player.on(AudioPlayerStatus.Idle,()=>{q.playing=false;if(!q.radioLoading)q.songs.shift();if(!q.radioLoading)playNext(guildId).catch(e=>console.error('Musik:',e));});
   player.on('error',e=>{console.error('Audio-Fehler:',e.message);q.playing=false;q.songs.shift();playNext(guildId).catch(console.error);});
   musicQueues.set(guildId,q);
  }
@@ -136,10 +137,25 @@ client.on('interactionCreate',async i=>{
    const cmd=i.commandName;
    if(cmd==='ping')return i.reply({content:`🏓 Pong! ${client.ws.ping} ms`,flags:MessageFlags.Ephemeral});
    if(cmd==='status')return i.reply({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('Freiburg V2 • Botstatus').addFields({name:'Bot',value:'🟢 Online',inline:true},{name:'Ping',value:`${client.ws.ping} ms`,inline:true},{name:'Server',value:i.guild.name,inline:true},{name:'Laufzeit',value:`${Math.floor(process.uptime()/3600)} Stunden`,inline:true})],flags:MessageFlags.Ephemeral});
-   if(cmd==='ply'||cmd==='play'){
+    if(cmd==='ply'||cmd==='play'||cmd==='radio'){
     await i.deferReply();
     try{
-     const q=await connectVoice(i),query=i.options.getString('song',true).trim();
+      const q=await connectVoice(i);
+      if(cmd==='radio'){
+       q.radioLoading=true;q.songs=[];q.player.stop(true);
+       try{
+        const playlist=await play.playlist_info(RADIO_URL,{incomplete:true});
+        const videos=typeof playlist.all_videos==='function'?await playlist.all_videos():(playlist.videos||[]);
+        const tracks=videos.filter(v=>v&&v.url).map(v=>({title:v.title||'Unbekannter Titel',url:v.url,duration:v.durationRaw||'unbekannt',requestedBy:i.user.id,source:'YouTube Radio'}));
+        if(!tracks.length)throw new Error('YouTube hat aus diesem Radio-Mix keine Titel geliefert.');
+        q.songs.push(...tracks);
+       }finally{q.radioLoading=false;}
+       const started=await playNext(i.guildId);
+       if(!started)throw new Error('Der Radio-Mix wurde geladen, aber kein Titel konnte gestartet werden.');
+       log('Radio gestartet',`${q.songs.length} Titel • von ${i.user.tag}`,i.user.tag);
+       return i.editReply({embeds:[new EmbedBuilder().setColor(RED).setTitle('📻 Freiburg V2 Radio gestartet').setDescription(`YouTube Radio-Mix wird abgespielt.\n**${q.songs.length} Titel** wurden geladen.\n[Radio auf YouTube öffnen](${RADIO_URL})`).setFooter({text:'Freiburg V2 Music'})]});
+      }
+      const query=i.options.getString('song',true).trim();
      if(!query)throw new Error('Bitte gib einen Songtitel oder YouTube-Link ein.');
      let song;
      const isYouTubeUrl=/^https?:\/\/(www\.)?(youtube\.com\/(watch|shorts)|youtu\.be\/)/i.test(query);
