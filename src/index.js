@@ -65,11 +65,15 @@ async function connectVoice(i){
  const q=getQueue(i.guildId);
  if(q.connection&&q.connection.joinConfig.channelId!==vc.id){q.connection.destroy();q.connection=null;}
  if(!q.connection){
-  const connection=joinVoiceChannel({channelId:vc.id,guildId:i.guildId,adapterCreator:i.guild.voiceAdapterCreator,selfDeaf:true});
+  const connection=joinVoiceChannel({channelId:vc.id,guildId:i.guildId,adapterCreator:i.guild.voiceAdapterCreator,selfDeaf:true,debug:true});
   q.connection=connection;
   connection.subscribe(q.player);
   connection.on('stateChange',(oldState,newState)=>console.log(`[Voice] ${oldState.status} -> ${newState.status} | Kanal ${vc.id}`));
-  connection.on('debug',message=>console.log('[Voice Debug]',message));
+  connection.on('debug',message=>{
+   // Voice-Debug kann Sitzungsdaten enthalten: Tokens vor dem Loggen entfernen.
+   const safe=String(message).replace(/("token"\\s*:\\s*")[^"]+(")/gi,'$1[REDACTED]$2').replace(/(token[=:]\\s*)[^\\s,}]+/gi,'$1[REDACTED]');
+   console.log('[Voice Debug]',safe);
+  });
   connection.on('error',error=>console.error('[Voice Error]',error?.stack||error));
   connection.on(VoiceConnectionStatus.Disconnected,async()=>{
    try{
