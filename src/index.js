@@ -71,7 +71,7 @@ async function connectVoice(i){
   connection.on('stateChange',(oldState,newState)=>console.log(`[Voice] ${oldState.status} -> ${newState.status} | Kanal ${vc.id}`));
   connection.on('debug',message=>{
    // Voice-Debug kann Sitzungsdaten enthalten: Tokens vor dem Loggen entfernen.
-   const safe=String(message).replace(/("token"\\s*:\\s*")[^"]+(")/gi,'$1[REDACTED]$2').replace(/(token[=:]\\s*)[^\\s,}]+/gi,'$1[REDACTED]');
+   const safe=String(message).replace(/("token"\s*:\s*")[^"]+(")/gi,'$1[REDACTED]$2').replace(/(token[=:]\s*)[^\s,}]+/gi,'$1[REDACTED]');
    console.log('[Voice Debug]',safe);
   });
   connection.on('error',error=>console.error('[Voice Error]',error?.stack||error));
