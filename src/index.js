@@ -305,8 +305,13 @@ client.on('interactionCreate',async i=>{
    }
    if(cmd==='clear'){if(!i.memberPermissions.has(PermissionFlagsBits.ManageMessages))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});const n=i.options.getInteger('anzahl',true);await i.channel.bulkDelete(n,true);return i.reply({content:`🧹 ${n} Nachrichten gelöscht.`,flags:MessageFlags.Ephemeral});}
    if(cmd==='kick'||cmd==='ban'){
-    if(!isAdmin(i))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});
+    const required=cmd==='kick'?PermissionFlagsBits.KickMembers:PermissionFlagsBits.BanMembers;
+    if(!i.memberPermissions?.has(required))return i.reply({content:`Dir fehlt die Berechtigung ${cmd==='kick'?'Mitglieder kicken':'Mitglieder bannen'}.`,flags:MessageFlags.Ephemeral});
+    const botMember=await i.guild.members.fetchMe();
+    if(!botMember.permissions.has(required))return i.reply({content:`Dem Bot fehlt die Serverberechtigung ${cmd==='kick'?'Mitglieder kicken':'Mitglieder bannen'}. Gib ihm diese Berechtigung oder Administrator.`,flags:MessageFlags.Ephemeral});
     const u=i.options.getUser('mitglied',true),reason=i.options.getString('grund')||'Kein Grund angegeben',m=await i.guild.members.fetch(u.id);
+    if(cmd==='kick'&&!m.kickable)return i.reply({content:'Der Bot kann dieses Mitglied nicht kicken. Prüfe die Rollen-Hierarchie: Die Bot-Rolle muss höher stehen.',flags:MessageFlags.Ephemeral});
+    if(cmd==='ban'&&!m.bannable)return i.reply({content:'Der Bot kann dieses Mitglied nicht bannen. Prüfe die Rollen-Hierarchie: Die Bot-Rolle muss höher stehen.',flags:MessageFlags.Ephemeral});
     if(cmd==='kick')await m.kick(reason);else await m.ban({reason});log(cmd,`${u.tag}: ${reason}`,i.user.tag);return i.reply({content:`✅ ${u.tag} wurde ${cmd==='kick'?'gekickt':'gebannt'}.`,flags:MessageFlags.Ephemeral});
    }
    if(cmd==='verwarnen'){
