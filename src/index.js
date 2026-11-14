@@ -206,6 +206,34 @@ client.on('interactionCreate',async i=>{
     await i.channel.send({embeds:[embed],components:[row]});
     return i.reply({content:'✅ Vorschau erstellt. Geplanter Beginn: <t:'+startAt+':F> (<t:'+startAt+':R>).',flags:MessageFlags.Ephemeral});
    }
+   if(cmd==='slowmode'){
+    if(!i.memberPermissions?.has(PermissionFlagsBits.ManageChannels))return i.reply({content:'Du benötigst die Berechtigung Kanäle verwalten.',flags:MessageFlags.Ephemeral});
+    if(!i.channel?.isTextBased()||!i.channel.setRateLimitPerUser)return i.reply({content:'Slowmode ist in diesem Kanaltyp nicht verfügbar.',flags:MessageFlags.Ephemeral});
+    const seconds=i.options.getInteger('sekunden',true),reason=i.options.getString('grund')||'Slowmode durch '+i.user.tag;
+    await i.channel.setRateLimitPerUser(seconds,reason);
+    log('Slowmode geändert',i.channel.name+': '+(seconds===0?'deaktiviert':seconds+' Sekunden')+' • '+reason,i.user.tag);
+    return i.reply({content:seconds===0?'Slowmode wurde ausgeschaltet.':'Slowmode auf '+seconds+' Sekunden gesetzt.',flags:MessageFlags.Ephemeral});
+   }
+   if(cmd==='wartungbeendet'){
+    if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartung als beendet melden.',flags:MessageFlags.Ephemeral});
+    await i.deferReply({flags:MessageFlags.Ephemeral});
+    const embed=new EmbedBuilder().setColor(GREEN).setTitle('WARTUNG BEENDET – FREIBURG V2 IST ZURÜCK!').setDescription(
+      'Liebe Freiburg-V2-Community,\n\n'+
+      'unsere Wartungsarbeiten sind abgeschlossen! Freiburg V2 ist wieder für euch da. Vielen Dank für eure Geduld.\n\n'+
+      '**Das ist neu:**\n'+
+      '• Überarbeitetes Control-Center zur Discord-Serververwaltung\n'+
+      '• Willkommensbereich mit Bildern direkt vom PC\n'+
+      '• Tickets mit eigenen Kategorien, Bildern und Formularen\n'+
+      '• Slowmode zur besseren Moderation von Textkanälen\n'+
+      '• Verbesserte Wartungs- und Statusmeldungen\n'+
+      '• Technische Fehlerbehebungen und Optimierungen\n\n'+
+      '**Bitte beachtet:** Lest die aktuellen Regeln und bestätigt sie erneut, falls Discord euch dazu auffordert.\n\n'+
+      'Wir wünschen euch viel Spaß auf Freiburg V2!\n\n**Euer Freiburg V2 Team**').setFooter({text:'Freiburg V2 • Wartungsabschluss'}).setTimestamp();
+    const targets=['1504257087608324157','1504245602182238380'],sent=[],failed=[];
+    for(const id of targets){try{const ch=await client.channels.fetch(id);if(!ch?.isTextBased()||!ch.send)throw new Error('Kanal nicht verfügbar');await ch.send({embeds:[embed]});sent.push('<#'+id+'>');}catch(e){failed.push(id+': '+e.message);}}
+    if(sent.length)log('Wartung beendet','Abschlussmeldung veröffentlicht: '+sent.join(', '),i.user.tag);
+    return i.editReply(sent.length===targets.length?'Wartungsabschluss in beiden Kanälen veröffentlicht.':'Teilweise veröffentlicht. Erfolgreich: '+(sent.join(', ')||'keiner')+'. Fehler: '+failed.join(' | '));
+   }
    if(cmd==='ping')return i.reply({content:`🏓 Pong! ${client.ws.ping} ms`,flags:MessageFlags.Ephemeral});
    if(cmd==='status')return i.reply({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('Freiburg V2 • Botstatus').addFields({name:'Bot',value:'🟢 Online',inline:true},{name:'Ping',value:`${client.ws.ping} ms`,inline:true},{name:'Server',value:i.guild.name,inline:true},{name:'Laufzeit',value:`${Math.floor(process.uptime()/3600)} Stunden`,inline:true})],flags:MessageFlags.Ephemeral});
     if(cmd==='ply'||cmd==='play'||cmd==='radio'){
