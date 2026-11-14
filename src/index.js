@@ -123,7 +123,7 @@ const defaults={
 function db(){const saved=store.read();return {...defaults,...saved,config:{...defaults.config,...saved.config},ticketCategories:saved.ticketCategories?.length?saved.ticketCategories:defaults.ticketCategories};}
 function update(fn){return store.update(d=>{for(const [k,v] of Object.entries(defaults))if(d[k]===undefined)d[k]=Array.isArray(v)?[]:(v&&typeof v==='object'?{...v}:v);d.config={...defaults.config,...d.config};if(!Array.isArray(d.ticketCategories)||d.ticketCategories.length===0)d.ticketCategories=defaults.ticketCategories.map(x=>({...x}));return fn(d);});}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const isAdmin=i=>i.memberPermissions?.has(PermissionFlagsBits.Administrator);
+const isAdmin=i=>{const ids=db().config.dashboardAccessRoleIds||[];if(ids.length)return i.member?.roles?.cache?.some(role=>ids.includes(role.id))||i.memberPermissions?.has(PermissionFlagsBits.Administrator);return i.memberPermissions?.has(PermissionFlagsBits.Administrator);};
 function log(type,description,user='System'){
  update(d=>{d.logs.unshift({id:Date.now().toString(36),type,description,user,at:new Date().toISOString()});d.logs=d.logs.slice(0,500);});
  const id=db().config.logChannelId;
@@ -215,7 +215,7 @@ client.on('interactionCreate',async i=>{
     return i.reply({content:'✅ Vorschau erstellt. Geplanter Beginn: <t:'+startAt+':F> (<t:'+startAt+':R>).',flags:MessageFlags.Ephemeral});
    }
    if(cmd==='slowmode'){
-    if(!i.memberPermissions?.has(PermissionFlagsBits.ManageChannels))return i.reply({content:'Du benötigst die Berechtigung Kanäle verwalten.',flags:MessageFlags.Ephemeral});
+    if(!isAdmin(i))return i.reply({content:'Du benötigst eine freigeschaltete Verwaltungsrolle.',flags:MessageFlags.Ephemeral});
     if(!i.channel?.isTextBased()||!i.channel.setRateLimitPerUser)return i.reply({content:'Slowmode ist in diesem Kanaltyp nicht verfügbar.',flags:MessageFlags.Ephemeral});
     const seconds=i.options.getInteger('sekunden',true),reason=i.options.getString('grund')||'Slowmode durch '+i.user.tag;
     await i.channel.setRateLimitPerUser(seconds,reason);
@@ -369,10 +369,10 @@ client.on('interactionCreate',async i=>{
     const dest=db().config.reportChannelId||db().config.applicationChannelId;if(dest)client.channels.fetch(dest).then(c=>c?.send({embeds:[new EmbedBuilder().setColor(RED).setTitle('🚨 Neue Spielermeldung').addFields({name:'Gemeldeter Spieler',value:esc(r.target)},{name:'Grund',value:esc(r.reason)},{name:'Meldende Person',value:`<@${i.user.id}>`},{name:'Referenz',value:r.id})]})).catch(()=>{});
     log('Spielermeldung',`${r.target}: ${r.reason}`,i.user.tag);return i.reply({content:`✅ Meldung aufgenommen. Referenz: ${r.id}`,flags:MessageFlags.Ephemeral});
    }
-   if(cmd==='clear'){if(!i.memberPermissions.has(PermissionFlagsBits.ManageMessages))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});const n=i.options.getInteger('anzahl',true);await i.channel.bulkDelete(n,true);return i.reply({content:`🧹 ${n} Nachrichten gelöscht.`,flags:MessageFlags.Ephemeral});}
+   if(cmd==='clear'){if(!isAdmin(i))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});const n=i.options.getInteger('anzahl',true);await i.channel.bulkDelete(n,true);return i.reply({content:`🧹 ${n} Nachrichten gelöscht.`,flags:MessageFlags.Ephemeral});}
    if(cmd==='kick'||cmd==='ban'){
     const required=cmd==='kick'?PermissionFlagsBits.KickMembers:PermissionFlagsBits.BanMembers;
-    if(!i.memberPermissions?.has(required))return i.reply({content:`Dir fehlt die Berechtigung ${cmd==='kick'?'Mitglieder kicken':'Mitglieder bannen'}.`,flags:MessageFlags.Ephemeral});
+    if(!isAdmin(i))return i.reply({content:'Dir fehlt die freigeschaltete Verwaltungsrolle.',flags:MessageFlags.Ephemeral});
     const botMember=await i.guild.members.fetchMe();
     if(!botMember.permissions.has(required))return i.reply({content:`Dem Bot fehlt die Serverberechtigung ${cmd==='kick'?'Mitglieder kicken':'Mitglieder bannen'}. Gib ihm diese Berechtigung oder Administrator.`,flags:MessageFlags.Ephemeral});
     const u=i.options.getUser('mitglied',true),reason=i.options.getString('grund')||'Kein Grund angegeben',m=await i.guild.members.fetch(u.id);
@@ -458,7 +458,7 @@ client.on('interactionCreate',async i=>{
     await i.reply({content:'🔒 Ticket wird in 5 Sekunden geschlossen.',flags:MessageFlags.Ephemeral});setTimeout(()=>i.channel?.delete().catch(()=>{}),5000);return;
    }
    if(i.customId.startsWith('ticket_claim:')){
-    if(!i.memberPermissions.has(PermissionFlagsBits.ManageChannels))return i.reply({content:'Nur das Supportteam darf Tickets übernehmen.',flags:MessageFlags.Ephemeral});
+    if(!isAdmin(i))return i.reply({content:'Nur das freigeschaltete Supportteam darf Tickets übernehmen.',flags:MessageFlags.Ephemeral});
     const id=i.customId.split(':')[1];update(d=>{const t=d.tickets.find(x=>x.id===id);if(t)t.claimedBy=i.user.id;});log('Ticket übernommen',id,i.user.tag);return i.reply({content:`🙋 Ticket übernommen von ${i.user}.`});
    }
   }
