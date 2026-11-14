@@ -382,7 +382,7 @@ client.on('interactionCreate',async i=>{
     const u=i.options.getUser('mitglied',true),reason=i.options.getString('grund',true);update(d=>d.warnings.unshift({userId:u.id,reason,by:i.user.id,at:new Date().toISOString()}));log('Verwarnung',`${u.tag}: ${reason}`,i.user.tag);return i.reply({content:`⚠️ Verwarnung für ${u.tag} dokumentiert.`,flags:MessageFlags.Ephemeral});
    }
   }
-  if(i.isButton()){
+  if(i.isButton()){if(i.customId==='freiburg_verify_member'){const c=db().config;if(!c.verificationEnabled||!c.verifiedRoleId)return i.reply({content:'Die Verifizierung ist derzeit nicht aktiviert.',flags:MessageFlags.Ephemeral});const role=i.guild.roles.cache.get(c.verifiedRoleId)||await i.guild.roles.fetch(c.verifiedRoleId).catch(()=>null);if(!role)return i.reply({content:'Die Verifizierungsrolle wurde nicht gefunden. Bitte melde dich beim Team.',flags:MessageFlags.Ephemeral});const member=await i.guild.members.fetch(i.user.id);if(member.roles.cache.has(role.id))return i.reply({content:'Du bist bereits verifiziert. Viel Spaß auf Freiburg V2!',flags:MessageFlags.Ephemeral});await member.roles.add(role,'Freiburg V2 Verifizierung über das Control Center');return i.reply({content:'✅ Du bist jetzt erfolgreich verifiziert. Willkommen auf Freiburg V2!',flags:MessageFlags.Ephemeral});}
    if(i.customId.startsWith('wartung_publish:')){
     if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartungsankündigung veröffentlichen.',flags:MessageFlags.Ephemeral});
     if(i.channelId!=='1571228234660450374')return i.reply({content:'Dieser Button ist nur im Wartungs-Steuerkanal gültig.',flags:MessageFlags.Ephemeral});
