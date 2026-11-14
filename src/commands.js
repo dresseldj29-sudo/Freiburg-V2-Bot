@@ -33,6 +33,8 @@ const commands=[
  new SlashCommandBuilder().setName('volume').setDescription('Ändert die Lautstärke').addIntegerOption(o=>o.setName('wert').setDescription('0 bis 100').setMinValue(0).setMaxValue(100).setRequired(true)),
  new SlashCommandBuilder().setName('rulesstatus').setDescription('Zeigt bestätigte Teamregelwerke').setDefaultMemberPermissions(admin),
  new SlashCommandBuilder().setName('timeout').setDescription('Gibt einem Mitglied eine Auszeit').addUserOption(o=>o.setName('mitglied').setDescription('Mitglied').setRequired(true)).addIntegerOption(o=>o.setName('minuten').setDescription('Dauer in Minuten').setMinValue(1).setMaxValue(40320).setRequired(true)).addStringOption(o=>o.setName('grund').setDescription('Grund').setRequired(false)).setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+ new SlashCommandBuilder().setName('slowmode').setDescription('Setzt den Slowmode für diesen Textkanal').addIntegerOption(o=>o.setName('sekunden').setDescription('0 = aus, maximal 21600 Sekunden').setMinValue(0).setMaxValue(21600).setRequired(true)).addStringOption(o=>o.setName('grund').setDescription('Optionaler Grund').setRequired(false)).setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
+ new SlashCommandBuilder().setName('wartungbeendet').setDescription('Veröffentlicht die Abschlussmeldung zur Freiburg-V2-Wartung').setDefaultMemberPermissions(admin),
  new SlashCommandBuilder().setName('ping').setDescription('Prüft die Bot-Latenz')
 ];
 module.exports=commands.map(c=>c.toJSON());
