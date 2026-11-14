@@ -156,8 +156,8 @@ function rulesEmbeds(){
 function ticketPanel(){
  const cats=db().ticketCategories.slice(0,25);
  const menu=new StringSelectMenuBuilder().setCustomId('ticket_category').setPlaceholder('Wähle eine Kategorie, um ein Ticket zu öffnen…').addOptions(cats.map(c=>({label:c.name.slice(0,100),value:c.id,description:(c.description||'Ticket eröffnen').slice(0,100),emoji:c.emoji||'🎫'})));
- const embed=new EmbedBuilder().setColor(RED).setTitle('🎫 Support-Ticket erstellen').setDescription('Wähle unten eine Kategorie aus. Unser Team kümmert sich schnellstmöglich um dein Anliegen.');
- for(const c of cats){const opened=db().tickets.filter(t=>t.categoryId===c.id&&t.status==='open').length;const max=Math.max(1,Number(c.maxTickets)||10);const pct=Math.min(100,Math.round(opened/max*100));embed.addFields({name:(c.emoji||'🎫')+' '+c.name,value:(opened>=max?'🔴 Ausgelastet':'🟢 Verfügbar')+'\n**'+opened+'/'+max+'** ('+pct+'%)',inline:true});}
+ const embed=new EmbedBuilder().setColor(RED).setTitle('🎫 Support-Ticket erstellen').setDescription('Wähle unten eine Kategorie aus, um direkt ein Ticket zu eröffnen. Unser Freiburg-V2-Team hilft dir schnellstmöglich weiter.');
+ for(const c of cats){const opened=db().tickets.filter(t=>t.categoryId===c.id&&t.status==='open').length;const max=Math.max(1,Math.min(500,Number(c.maxTickets)||10));const pct=Math.min(100,Math.round(opened/max*100));embed.addFields({name:(c.emoji||'🎫')+' '+c.name,value:(opened>=max?'🔴 Ausgelastet':'🟢 Verfügbar')+'\n**'+opened+'/'+max+'** ('+pct+'%)',inline:true});}
  embed.addFields({name:'⭐ Bewertung',value:'Noch keine Bewertungen vorhanden',inline:true});
  const banner=cats.find(c=>/^https:\/\//i.test(c.imageUrl||''))?.imageUrl;if(banner)embed.setImage(banner);
  embed.setFooter({text:'Freiburg V2 • Support-Center'});
