@@ -182,6 +182,14 @@ client.on('interactionCreate',async i=>{
  try{
   if(i.isChatInputCommand()){
    const cmd=i.commandName;
+   if(cmd==='wartung'){
+    if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartungsankündigung vorbereiten.',flags:MessageFlags.Ephemeral});
+    if(i.channelId!=='1571228234660450374')return i.reply({content:'Bitte führe /wartung nur im vorgesehenen Wartungs-Steuerkanal aus.',flags:MessageFlags.Ephemeral});
+    const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('wartung_publish').setLabel('Wartungsankündigung veröffentlichen').setEmoji('📢').setStyle(ButtonStyle.Danger));
+    const embed=new EmbedBuilder().setColor(RED).setTitle('🚧 Freiburg V2 • Wartungsankündigung').setDescription('Prüfe vor der Veröffentlichung die Ankündigung. Mit dem roten Button wird sie **gleichzeitig** in beiden festgelegten Ankündigungskanälen veröffentlicht und @everyone benachrichtigt.\n\n**Zielkanäle:**\n• <#1504257087608324157>\n• <#1504245602182238380>');
+    await i.channel.send({embeds:[embed],components:[row]});
+    return i.reply({content:'✅ Das Wartungs-Steuerfeld wurde hier erstellt. Die Ankündigung wird erst nach Klick auf den Button veröffentlicht.',flags:MessageFlags.Ephemeral});
+   }
    if(cmd==='ping')return i.reply({content:`🏓 Pong! ${client.ws.ping} ms`,flags:MessageFlags.Ephemeral});
    if(cmd==='status')return i.reply({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('Freiburg V2 • Botstatus').addFields({name:'Bot',value:'🟢 Online',inline:true},{name:'Ping',value:`${client.ws.ping} ms`,inline:true},{name:'Server',value:i.guild.name,inline:true},{name:'Laufzeit',value:`${Math.floor(process.uptime()/3600)} Stunden`,inline:true})],flags:MessageFlags.Ephemeral});
     if(cmd==='ply'||cmd==='play'||cmd==='radio'){
@@ -326,6 +334,43 @@ client.on('interactionCreate',async i=>{
    }
   }
   if(i.isButton()){
+   if(i.customId==='wartung_publish'){
+    if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartungsankündigung veröffentlichen.',flags:MessageFlags.Ephemeral});
+    if(i.channelId!=='1571228234660450374')return i.reply({content:'Dieser Button ist nur im Wartungs-Steuerkanal gültig.',flags:MessageFlags.Ephemeral});
+    await i.deferReply({flags:MessageFlags.Ephemeral});
+    const announcement=new EmbedBuilder().setColor(RED).setTitle('🚨 WICHTIGE INFORMATION – WARTUNGSARBEITEN BEI FREIBURG V2').setDescription(
+      'Liebe Community,\n\nbei **Freiburg V2** stehen umfangreiche Wartungs- und Optimierungsarbeiten an. Wir möchten unsere Systeme weiter verbessern und euch anschließend ein stabileres und zuverlässigeres Spielerlebnis bieten.\n\n' +
+      '**🔧 Was wird während der Wartung gemacht?**\n' +
+      '• Technische Überarbeitung und Optimierung unserer Systeme\n' +
+      '• Fehlerbehebungen und Verbesserungen der Stabilität\n' +
+      '• Updates und Verbesserungen am Discord-Bot\n' +
+      '• Überprüfung von Rollen, Berechtigungen und Kanälen\n' +
+      '• Optimierung der Support-, Feuerwehr- und Rettungsdienst-Funktionen\n' +
+      '• Allgemeine Wartungs- und Sicherheitsarbeiten\n\n' +
+      '**📜 WICHTIG – Regeln nach der Wartung erneut bestätigen**\n' +
+      'Nach Abschluss der Wartung müssen **alle Mitglieder die aktuellen Serverregeln erneut lesen und bestätigen**. Die bisherige Bestätigung wird zurückgesetzt. Bestimmte Discord-Bereiche werden erst nach erfolgreicher Bestätigung wieder freigeschaltet. Bitte lest die Regeln aufmerksam durch und bestätigt sie anschließend über die dafür vorgesehene Funktion.\n\n' +
+      '**⏳ Während der Wartung**\n' +
+      'Einzelne Funktionen oder Bereiche können vorübergehend nicht verfügbar sein. Wir bitten euch, mögliche Einschränkungen zu entschuldigen und während der Arbeiten etwas Geduld zu haben.\n\n' +
+      'Vielen Dank für euer Verständnis und eure Unterstützung!\n\n**Euer Freiburg V2 Team** 🚒'
+    ).setFooter({text:'Freiburg V2 • Offizielle Information'}).setTimestamp();
+    const targets=['1504257087608324157','1504245602182238380'];
+    const sent=[],failed=[];
+    for(const id of targets){
+      try{
+        const channel=await client.channels.fetch(id);
+        if(!channel||!channel.isTextBased()||!channel.send)throw new Error('Kanal nicht gefunden oder kein Textkanal');
+        await channel.send({content:'@everyone',embeds:[announcement],allowedMentions:{parse:['everyone']}});
+        sent.push('<#'+id+'>');
+      }catch(error){failed.push(id+': '+(error?.message||'Unbekannter Fehler'));console.error('Wartungsankündigung '+id+':',error);}
+    }
+    if(sent.length===targets.length){
+      await i.message.edit({components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('wartung_published').setLabel('Ankündigung veröffentlicht').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(true))]}).catch(()=>{});
+      log('Wartungsankündigung veröffentlicht','Veröffentlicht in '+targets.join(', '),i.user.tag);
+      return i.editReply('✅ Die Wartungsankündigung wurde erfolgreich in beiden Kanälen veröffentlicht.');
+    }
+    return i.editReply('⚠️ Teilweise veröffentlicht. Erfolgreich: '+(sent.join(', ')||'keiner')+'. Fehler: '+(failed.join(' | ')||'keine'));
+   }
+
    if(i.customId.startsWith('setup_channels_')||i.customId==='setup_welcome'){
     if(!isAdmin(i))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});
     const c=db().config,modal=new ModalBuilder().setCustomId(i.customId.startsWith('setup_channels_')?'setup_channels_modal_'+i.customId.split('_').pop():'setup_welcome_modal').setTitle(i.customId.startsWith('setup_channels_')?'Kanäle und Rollen konfigurieren':'Begrüßung konfigurieren');
