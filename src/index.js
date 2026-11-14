@@ -183,12 +183,20 @@ client.on('interactionCreate',async i=>{
   if(i.isChatInputCommand()){
    const cmd=i.commandName;
    if(cmd==='wartung'){
-    if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartungsankündigung vorbereiten.',flags:MessageFlags.Ephemeral});
+    if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen Wartungsankündigungen vorbereiten.',flags:MessageFlags.Ephemeral});
     if(i.channelId!=='1571228234660450374')return i.reply({content:'Bitte führe /wartung nur im vorgesehenen Wartungs-Steuerkanal aus.',flags:MessageFlags.Ephemeral});
-    const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('wartung_publish').setLabel('Wartungsankündigung veröffentlichen').setEmoji('📢').setStyle(ButtonStyle.Danger));
-    const embed=new EmbedBuilder().setColor(RED).setTitle('🚧 Freiburg V2 • Wartungsankündigung').setDescription('Prüfe vor der Veröffentlichung die Ankündigung. Mit dem roten Button wird sie **gleichzeitig** in beiden festgelegten Ankündigungskanälen veröffentlicht und @everyone benachrichtigt.\n\n**Zielkanäle:**\n• <#1504257087608324157>\n• <#1504245602182238380>');
+    const minutes=i.options.getInteger('minuten',true);
+    const startAt=Math.floor(Date.now()/1000)+minutes*60;
+    const row=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('wartung_publish:'+startAt).setLabel('Ankündigung jetzt veröffentlichen').setEmoji('📢').setStyle(ButtonStyle.Danger));
+    const embed=new EmbedBuilder().setColor(RED).setTitle('🚧 Freiburg V2 • Wartung vorbereiten').setDescription(
+      'Die Wartungsankündigung ist vorbereitet. Prüfe den geplanten Zeitpunkt und veröffentliche sie anschließend über den roten Button.\n\n'+
+      '**Geplanter Wartungsbeginn:** <t:'+startAt+':F>\n'+
+      '**Countdown:** <t:'+startAt+':R>\n\n'+
+      '**Zielkanäle:**\n• <#1504257087608324157>\n• <#1504245602182238380>\n\n'+
+      'Nach der Wartung müssen alle Mitglieder die aktuellen Serverregeln erneut lesen und bestätigen.'
+    ).setFooter({text:'Freiburg V2 • Wartungssteuerung'});
     await i.channel.send({embeds:[embed],components:[row]});
-    return i.reply({content:'✅ Das Wartungs-Steuerfeld wurde hier erstellt. Die Ankündigung wird erst nach Klick auf den Button veröffentlicht.',flags:MessageFlags.Ephemeral});
+    return i.reply({content:'✅ Vorschau erstellt. Geplanter Beginn: <t:'+startAt+':F> (<t:'+startAt+':R>).',flags:MessageFlags.Ephemeral});
    }
    if(cmd==='ping')return i.reply({content:`🏓 Pong! ${client.ws.ping} ms`,flags:MessageFlags.Ephemeral});
    if(cmd==='status')return i.reply({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('Freiburg V2 • Botstatus').addFields({name:'Bot',value:'🟢 Online',inline:true},{name:'Ping',value:`${client.ws.ping} ms`,inline:true},{name:'Server',value:i.guild.name,inline:true},{name:'Laufzeit',value:`${Math.floor(process.uptime()/3600)} Stunden`,inline:true})],flags:MessageFlags.Ephemeral});
@@ -334,25 +342,29 @@ client.on('interactionCreate',async i=>{
    }
   }
   if(i.isButton()){
-   if(i.customId==='wartung_publish'){
+   if(i.customId.startsWith('wartung_publish:')){
     if(!isAdmin(i))return i.reply({content:'Nur Administratoren dürfen die Wartungsankündigung veröffentlichen.',flags:MessageFlags.Ephemeral});
     if(i.channelId!=='1571228234660450374')return i.reply({content:'Dieser Button ist nur im Wartungs-Steuerkanal gültig.',flags:MessageFlags.Ephemeral});
+    const startAt=Number(i.customId.split(':')[1]);
+    if(!Number.isSafeInteger(startAt)||startAt<=Math.floor(Date.now()/1000))return i.reply({content:'Der Wartungsbeginn liegt bereits in der Vergangenheit. Bitte erstelle mit /wartung eine neue Ankündigung.',flags:MessageFlags.Ephemeral});
     await i.deferReply({flags:MessageFlags.Ephemeral});
-    const announcement=new EmbedBuilder().setColor(RED).setTitle('🚨 WICHTIGE INFORMATION – WARTUNGSARBEITEN BEI FREIBURG V2').setDescription(
-      'Liebe Community,\n\nbei **Freiburg V2** stehen umfangreiche Wartungs- und Optimierungsarbeiten an. Wir möchten unsere Systeme weiter verbessern und euch anschließend ein stabileres und zuverlässigeres Spielerlebnis bieten.\n\n' +
-      '**🔧 Was wird während der Wartung gemacht?**\n' +
-      '• Technische Überarbeitung und Optimierung unserer Systeme\n' +
-      '• Fehlerbehebungen und Verbesserungen der Stabilität\n' +
-      '• Updates und Verbesserungen am Discord-Bot\n' +
-      '• Überprüfung von Rollen, Berechtigungen und Kanälen\n' +
-      '• Optimierung der Support-, Feuerwehr- und Rettungsdienst-Funktionen\n' +
-      '• Allgemeine Wartungs- und Sicherheitsarbeiten\n\n' +
-      '**📜 WICHTIG – Regeln nach der Wartung erneut bestätigen**\n' +
-      'Nach Abschluss der Wartung müssen **alle Mitglieder die aktuellen Serverregeln erneut lesen und bestätigen**. Die bisherige Bestätigung wird zurückgesetzt. Bestimmte Discord-Bereiche werden erst nach erfolgreicher Bestätigung wieder freigeschaltet. Bitte lest die Regeln aufmerksam durch und bestätigt sie anschließend über die dafür vorgesehene Funktion.\n\n' +
-      '**⏳ Während der Wartung**\n' +
-      'Einzelne Funktionen oder Bereiche können vorübergehend nicht verfügbar sein. Wir bitten euch, mögliche Einschränkungen zu entschuldigen und während der Arbeiten etwas Geduld zu haben.\n\n' +
+    const announcement=new EmbedBuilder().setColor(RED).setTitle('🚨 WICHTIGE ANKÜNDIGUNG – WARTUNGSARBEITEN BEI FREIBURG V2').setDescription(
+      'Liebe Freiburg-V2-Community,\n\n'+
+      'bei Freiburg V2 stehen umfangreiche Wartungs- und Optimierungsarbeiten an. Wir möchten unsere Technik verbessern, Fehler beheben und euch anschließend ein stabileres und zuverlässigeres Spielerlebnis bieten.\n\n'+
+      '**🕒 Geplanter Wartungsbeginn**\n<t:'+startAt+':F>\n'+
+      '**⏳ Verbleibende Zeit**\n<t:'+startAt+':R>\n\n'+
+      '**🔧 Was wird überarbeitet?**\n'+
+      '• Technische Systeme, Stabilität und Leistung\n'+
+      '• Fehlerbehebungen und Sicherheitsoptimierungen\n'+
+      '• Discord-Bot, Funktionen und Berechtigungen\n'+
+      '• Support-Abläufe und Serverstruktur\n'+
+      '• Feuerwehr- und Rettungsdienst-Funktionen\n\n'+
+      '**📜 WICHTIG: Regeln nach der Wartung erneut bestätigen**\n'+
+      'Nach Abschluss der Wartung müssen **alle Mitglieder die aktuellen Freiburg-V2-Regeln erneut vollständig lesen und bestätigen**. Bitte plant dafür einen kurzen Moment ein. Bestimmte Discord-Bereiche können erst nach erfolgreicher Bestätigung wieder freigeschaltet werden. Wo und wie ihr die Regeln bestätigt, teilen wir euch nach der Wartung mit.\n\n'+
+      '**⚠️ Während der Wartung**\n'+
+      'Der Server sowie einzelne Funktionen und Discord-Bereiche können vorübergehend eingeschränkt oder nicht erreichbar sein. Bitte habt während der Arbeiten etwas Geduld und wartet auf unsere Abschlussmeldung.\n\n'+
       'Vielen Dank für euer Verständnis und eure Unterstützung!\n\n**Euer Freiburg V2 Team** 🚒'
-    ).setFooter({text:'Freiburg V2 • Offizielle Information'}).setTimestamp();
+    ).setFooter({text:'Freiburg V2 • Offizielle Wartungsinformation'}).setTimestamp();
     const targets=['1504257087608324157','1504245602182238380'];
     const sent=[],failed=[];
     for(const id of targets){
@@ -365,12 +377,11 @@ client.on('interactionCreate',async i=>{
     }
     if(sent.length===targets.length){
       await i.message.edit({components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('wartung_published').setLabel('Ankündigung veröffentlicht').setEmoji('✅').setStyle(ButtonStyle.Success).setDisabled(true))]}).catch(()=>{});
-      log('Wartungsankündigung veröffentlicht','Veröffentlicht in '+targets.join(', '),i.user.tag);
-      return i.editReply('✅ Die Wartungsankündigung wurde erfolgreich in beiden Kanälen veröffentlicht.');
+      log('Wartungsankündigung veröffentlicht','Beginn: '+new Date(startAt*1000).toISOString()+' • Kanäle: '+targets.join(', '),i.user.tag);
+      return i.editReply('✅ In beiden Kanälen veröffentlicht. Discord aktualisiert den Live-Countdown automatisch.');
     }
     return i.editReply('⚠️ Teilweise veröffentlicht. Erfolgreich: '+(sent.join(', ')||'keiner')+'. Fehler: '+(failed.join(' | ')||'keine'));
    }
-
    if(i.customId.startsWith('setup_channels_')||i.customId==='setup_welcome'){
     if(!isAdmin(i))return i.reply({content:'Keine Berechtigung.',flags:MessageFlags.Ephemeral});
     const c=db().config,modal=new ModalBuilder().setCustomId(i.customId.startsWith('setup_channels_')?'setup_channels_modal_'+i.customId.split('_').pop():'setup_welcome_modal').setTitle(i.customId.startsWith('setup_channels_')?'Kanäle und Rollen konfigurieren':'Begrüßung konfigurieren');
