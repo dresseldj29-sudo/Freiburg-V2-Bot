@@ -123,7 +123,7 @@ const defaults={
 function db(){const saved=store.read();return {...defaults,...saved,config:{...defaults.config,...saved.config},ticketCategories:saved.ticketCategories?.length?saved.ticketCategories:defaults.ticketCategories};}
 function update(fn){return store.update(d=>{for(const [k,v] of Object.entries(defaults))if(d[k]===undefined)d[k]=Array.isArray(v)?[]:(v&&typeof v==='object'?{...v}:v);d.config={...defaults.config,...d.config};if(!Array.isArray(d.ticketCategories)||d.ticketCategories.length===0)d.ticketCategories=defaults.ticketCategories.map(x=>({...x}));return fn(d);});}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const isAdmin=i=>{const ids=db().config.dashboardAccessRoleIds||[];if(ids.length)return i.member?.roles?.cache?.some(role=>ids.includes(role.id))||i.memberPermissions?.has(PermissionFlagsBits.Administrator);return i.memberPermissions?.has(PermissionFlagsBits.Administrator);};
+const isAdmin=i=>{const ids=db().config.dashboardAccessRoleIds||[];const cached=i.guild?.members?.cache?.get(i.user.id);const roles=i.member?.roles?.cache?[...i.member.roles.cache.keys()]:Array.isArray(i.member?.roles)?i.member.roles:(cached?[...cached.roles.cache.keys()]:[]);if(ids.length)return roles.some(id=>ids.includes(id))||i.memberPermissions?.has(PermissionFlagsBits.Administrator);return i.memberPermissions?.has(PermissionFlagsBits.Administrator);};
 function log(type,description,user='System'){
  update(d=>{d.logs.unshift({id:Date.now().toString(36),type,description,user,at:new Date().toISOString()});d.logs=d.logs.slice(0,500);});
  const id=db().config.logChannelId;
@@ -302,7 +302,7 @@ client.on('interactionCreate',async i=>{
     if(cmd==='leave'){q.songs=[];q.player.stop(true);q.connection.destroy();musicQueues.delete(i.guildId);return i.reply('👋 Freiburg V2 Music hat den Voice-Channel verlassen.');}
    }
    if(cmd==='timeout'){
-    if(!i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers))return i.reply({content:'Dir fehlt die Berechtigung „Mitglieder moderieren“.',flags:MessageFlags.Ephemeral});
+    if(!isAdmin(i))return i.reply({content:'Dir fehlt die freigeschaltete Verwaltungsrolle.',flags:MessageFlags.Ephemeral});
     const botMember=await i.guild.members.fetchMe();
     if(!botMember.permissions.has(PermissionFlagsBits.ModerateMembers))return i.reply({content:'Dem Bot fehlt „Mitglieder moderieren“. Aktiviere diese Berechtigung in der Bot-Rolle oder gib ihm Administratorrechte.',flags:MessageFlags.Ephemeral});
     const u=i.options.getUser('mitglied',true),mins=i.options.getInteger('minuten',true),reason=i.options.getString('grund')||'Kein Grund angegeben';
@@ -452,7 +452,7 @@ client.on('interactionCreate',async i=>{
    if(i.customId.startsWith('ticket_close:')){
     const id=i.customId.split(':')[1],t=db().tickets.find(x=>x.id===id);
     if(!t)return i.reply({content:'Ticket nicht gefunden.',flags:MessageFlags.Ephemeral});
-    if(t.userId!==i.user.id&&!i.memberPermissions.has(PermissionFlagsBits.ManageChannels))return i.reply({content:'Nur Ticket-Ersteller oder berechtigtes Team dürfen schließen.',flags:MessageFlags.Ephemeral});
+    if(t.userId!==i.user.id&&!isAdmin(i))return i.reply({content:'Nur Ticket-Ersteller oder freigeschaltetes Team dürfen schließen.',flags:MessageFlags.Ephemeral});
     update(d=>{const x=d.tickets.find(v=>v.id===id);if(x){x.status='closed';x.closedAt=new Date().toISOString();x.closedBy=i.user.id;}});
     log('Ticket geschlossen',`${id} durch ${i.user.tag}`,i.user.tag);
     await i.reply({content:'🔒 Ticket wird in 5 Sekunden geschlossen.',flags:MessageFlags.Ephemeral});setTimeout(()=>i.channel?.delete().catch(()=>{}),5000);return;
