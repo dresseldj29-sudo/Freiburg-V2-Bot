@@ -5,6 +5,10 @@ const {
  REST, Routes, PermissionFlagsBits, ChannelType
 }=require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState, NoSubscriberBehavior }=require('@discordjs/voice');
+const CONFIG_URL=process.env.BOT_CONFIG_URL;
+const CONFIG_SECRET=process.env.BOT_CONFIG_SECRET;
+let remoteConfigBusy=false;
+async function syncRemoteConfig(){if(!CONFIG_URL||!CONFIG_SECRET||remoteConfigBusy)return;remoteConfigBusy=true;try{const r=await fetch(CONFIG_URL,{headers:{'x-bot-config-secret':CONFIG_SECRET},signal:AbortSignal.timeout(10000)});if(!r.ok)throw new Error('Dashboard-Konfiguration HTTP '+r.status);const incoming=await r.json();if(!incoming||typeof incoming!=='object')throw new Error('Ungültige Dashboard-Konfiguration');store.update(d=>{d.config={...d.config,...(incoming.config||{})};if(Array.isArray(incoming.ticketCategories))d.ticketCategories=incoming.ticketCategories.slice(0,25);});console.log('[Dashboard] Einstellungen synchronisiert.');}catch(e){console.error('[Dashboard] Synchronisierung fehlgeschlagen:',e.message);}finally{remoteConfigBusy=false;}}
 const play=require('@iamtraction/play-dl');
 const store=require('./store');
 const commands=require('./commands');
@@ -105,7 +109,7 @@ async function connectVoice(i){
  return q;
 }
 const defaults={
- config:{serverName:'Freiburg V2 Roleplay',logChannelId:'',ticketParentId:'',supportRoleId:'',teamRoleId:'',welcomeChannelId:'',suggestionChannelId:'',reportChannelId:'',applicationChannelId:'',rulesChannelId:'',welcomeText:'Willkommen auf Freiburg V2, {user}!'},
+ config:{serverName:'Freiburg V2 Roleplay',logChannelId:'',ticketParentId:'',supportRoleId:'',teamRoleId:'',welcomeChannelId:'',welcomeEnabled:false,goodbyeChannelId:'',goodbyeEnabled:false,goodbyeText:'{user} hat Freiburg V2 verlassen. Auf Wiedersehen!',autoRoleId:'',suggestionChannelId:'',reportChannelId:'',applicationChannelId:'',rulesChannelId:'',welcomeText:'Willkommen auf Freiburg V2, {user}!'},
  ticketCategories:[
   {id:'support',name:'Allgemeiner Support',emoji:'🎫',description:'Fragen und allgemeine Hilfe',parentId:''},
   {id:'bug',name:'Bug melden',emoji:'🐛',description:'Fehler oder technische Probleme melden',parentId:''},
@@ -172,12 +176,9 @@ async function register(){
  await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID,process.env.GUILD_ID),{body:commands});
  console.log(`✅ ${commands.length} Slash Commands registriert.`);
 }
-client.once('clientReady',async()=>{console.log(`🤖 Eingeloggt als ${client.user.tag}`);try{await register();}catch(e){console.error('Slash Commands:',e.message);}});
-client.on('guildMemberAdd',async member=>{
- const c=db().config.welcomeChannelId;if(!c)return;
- const ch=member.guild.channels.cache.get(c)||await member.guild.channels.fetch(c).catch(()=>null);
- if(ch)ch.send({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('👋 Willkommen bei Freiburg V2!').setDescription(db().config.welcomeText.replaceAll('{user}',`<@${member.id}>`).replaceAll('{server}',member.guild.name)).setThumbnail(member.user.displayAvatarURL()).setTimestamp()]});
-});
+client.once('clientReady',async()=>{console.log(`🤖 Eingeloggt als ${client.user.tag}`);await syncRemoteConfig();setInterval(syncRemoteConfig,15000).unref();try{await register();}catch(e){console.error('Slash Commands:',e.message);}});
+client.on('guildMemberAdd',async member=>{try{const c=db().config;if(c.welcomeEnabled&&c.welcomeChannelId){const ch=member.guild.channels.cache.get(c.welcomeChannelId)||await member.guild.channels.fetch(c.welcomeChannelId).catch(()=>null);if(ch?.isTextBased())await ch.send({embeds:[new EmbedBuilder().setColor(GREEN).setTitle('👋 Willkommen bei Freiburg V2!').setDescription(String(c.welcomeText||'Willkommen {user}!').replaceAll('{user}',`<@${member.id}>`).replaceAll('{server}',member.guild.name).replaceAll('{memberCount}',String(member.guild.memberCount))).setThumbnail(member.user.displayAvatarURL({size:256})).setFooter({text:`Mitglied Nr. ${member.guild.memberCount}`}).setTimestamp()]});}if(c.autoRoleId){const role=member.guild.roles.cache.get(c.autoRoleId)||await member.guild.roles.fetch(c.autoRoleId).catch(()=>null);if(role)await member.roles.add(role,'Automatische Rolle bei Serverbeitritt');}}catch(e){console.error('[Willkommen/Rolle]:',e.message);}});
+client.on('guildMemberRemove',async member=>{try{const c=db().config;if(!c.goodbyeEnabled||!c.goodbyeChannelId)return;const ch=member.guild.channels.cache.get(c.goodbyeChannelId)||await member.guild.channels.fetch(c.goodbyeChannelId).catch(()=>null);if(ch?.isTextBased())await ch.send({embeds:[new EmbedBuilder().setColor(RED).setTitle('👋 Auf Wiedersehen!').setDescription(String(c.goodbyeText||'{user} hat den Server verlassen.').replaceAll('{user}',member.user?.tag||member.user?.username||'Ein Mitglied').replaceAll('{server}',member.guild.name).replaceAll('{memberCount}',String(member.guild.memberCount))).setThumbnail(member.user?.displayAvatarURL?.({size:256})||null).setTimestamp()]});}catch(e){console.error('[Verabschiedung]:',e.message);}});
 client.on('interactionCreate',async i=>{
  try{
   if(i.isChatInputCommand()){
