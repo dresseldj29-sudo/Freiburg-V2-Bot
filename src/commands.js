@@ -1,7 +1,7 @@
 const {SlashCommandBuilder,PermissionFlagsBits,ChannelType}=require('discord.js');
 const admin=PermissionFlagsBits.Administrator;
 const commands=[
- new SlashCommandBuilder().setName('wartung').setDescription('Bereitet die Wartungsankündigung zur Veröffentlichung vor').setDefaultMemberPermissions(admin),
+ new SlashCommandBuilder().setName('wartung').setDescription('Erstellt eine Wartungsankündigung mit Live-Countdown').addIntegerOption(o=>o.setName('minuten').setDescription('Minuten bis zum Wartungsbeginn (1 bis 43200)').setMinValue(1).setMaxValue(43200).setRequired(true)).setDefaultMemberPermissions(admin),
  new SlashCommandBuilder().setName('setup').setDescription('Öffnet die komplette Discord-Bot-Verwaltung').setDefaultMemberPermissions(admin),
  new SlashCommandBuilder().setName('ticketpanel').setDescription('Veröffentlicht das Ticket-Auswahlpanel').setDefaultMemberPermissions(admin),
  new SlashCommandBuilder().setName('ticket').setDescription('Eröffnet ein Ticket über die Kategorieauswahl'),
