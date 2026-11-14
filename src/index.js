@@ -242,9 +242,15 @@ client.on('interactionCreate',async i=>{
     if(cmd==='leave'){q.songs=[];q.player.stop(true);q.connection.destroy();musicQueues.delete(i.guildId);return i.reply('👋 Freiburg V2 Music hat den Voice-Channel verlassen.');}
    }
    if(cmd==='timeout'){
+    if(!i.memberPermissions?.has(PermissionFlagsBits.ModerateMembers))return i.reply({content:'Dir fehlt die Berechtigung „Mitglieder moderieren“.',flags:MessageFlags.Ephemeral});
+    const botMember=await i.guild.members.fetchMe();
+    if(!botMember.permissions.has(PermissionFlagsBits.ModerateMembers))return i.reply({content:'Dem Bot fehlt „Mitglieder moderieren“. Aktiviere diese Berechtigung in der Bot-Rolle oder gib ihm Administratorrechte.',flags:MessageFlags.Ephemeral});
     const u=i.options.getUser('mitglied',true),mins=i.options.getInteger('minuten',true),reason=i.options.getString('grund')||'Kein Grund angegeben';
-    const m=await i.guild.members.fetch(u.id);await m.timeout(mins*60000,reason);
-    log('Timeout',`${u.tag} • ${mins} Minuten • ${reason}`,i.user.tag);return i.reply({content:`⏳ ${u.tag} erhielt einen Timeout für ${mins} Minuten.`,flags:MessageFlags.Ephemeral});
+    if(u.id===i.user.id)return i.reply({content:'Du kannst dir selbst keinen Timeout geben.',flags:MessageFlags.Ephemeral});
+    const m=await i.guild.members.fetch(u.id);
+    if(!m.moderatable)return i.reply({content:'Der Bot kann dieses Mitglied nicht timeouten. Prüfe, ob das Mitglied eine höhere Rolle oder Administratorrechte hat. Die Bot-Rolle muss höher stehen.',flags:MessageFlags.Ephemeral});
+    await m.timeout(mins*60000,reason);
+    log('Timeout',`${u.tag} • ${mins} Minuten • ${reason}`,i.user.tag);return i.reply({content:`⏳ ${u.tag} erhielt einen Timeout für ${mins} Minuten. Grund: ${reason}`,flags:MessageFlags.Ephemeral});
    }
    if(cmd==='rulesstatus'){
     const entries=db().ruleConfirmations;
