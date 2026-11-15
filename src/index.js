@@ -184,7 +184,7 @@ async function createTicket(i,cat,answers={}){
  log('Ticket erstellt',`${t.id} • ${cat.name} • ${user.tag}`,user.tag);
  return i.reply({content:`Dein Ticket wurde erstellt: ${channel}`,flags:MessageFlags.Ephemeral});
 }
-function giveawayEmbed(job,count,endsAt,finished=false,winners=[]){const desc=(job.description?job.description+'\\n\\n':'')+'**Preis:** '+job.prize+'\\n**Gewinner:** '+job.winnerCount+'\\n**'+(finished?'Beendet':'Endet')+'**: <t:'+Math.floor(endsAt/1000)+':F>\\n**Teilnehmer:** '+count+(finished?'\\n\\n**Gewinner:** '+(winners.length?winners.map(id=>'<@'+id+'>').join(', '):'Keine Teilnehmer'):'');return new EmbedBuilder().setColor(finished?GREEN:RED).setTitle((finished?'🏁 ':'🎉 ')+job.title).setDescription(desc).setFooter({text:'Freiburg V2 • Giveaway'}).setTimestamp();}
+function giveawayEmbed(job,count,endsAt,finished=false,winners=[]){const desc=(job.description?job.description+'\n\n':'')+'**Preis:** '+job.prize+'\n**Gewinner:** '+job.winnerCount+'\n**'+(finished?'Beendet':'Endet')+'**: <t:'+Math.floor(endsAt/1000)+':F>\n**Teilnehmer:** '+count+(finished?'\n\n**Gewinner:** '+(winners.length?winners.map(id=>'<@'+id+'>').join(', '):'Keine Teilnehmer'):'');return new EmbedBuilder().setColor(finished?GREEN:RED).setTitle((finished?'🏁 ':'🎉 ')+job.title).setDescription(desc).setFooter({text:'Freiburg V2 • Giveaway'}).setTimestamp();}
 let giveawayProcessing=false;
 async function processGiveaways(){
  if(giveawayProcessing)return;giveawayProcessing=true;
