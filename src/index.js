@@ -185,7 +185,40 @@ async function createTicket(i,cat,answers={}){
  return i.reply({content:`Dein Ticket wurde erstellt: ${channel}`,flags:MessageFlags.Ephemeral});
 }
 function giveawayEmbed(job,count,endsAt,finished=false,winners=[]){const desc=(job.description?job.description+'\\n\\n':'')+'**Preis:** '+job.prize+'\\n**Gewinner:** '+job.winnerCount+'\\n**'+(finished?'Beendet':'Endet')+'**: <t:'+Math.floor(endsAt/1000)+':F>\\n**Teilnehmer:** '+count+(finished?'\\n\\n**Gewinner:** '+(winners.length?winners.map(id=>'<@'+id+'>').join(', '):'Keine Teilnehmer'):'');return new EmbedBuilder().setColor(finished?GREEN:RED).setTitle((finished?'🏁 ':'🎉 ')+job.title).setDescription(desc).setFooter({text:'Freiburg V2 • Giveaway'}).setTimestamp();}
-async function processGiveaways(){const jobs=db().config.giveawayJobs||[];for(const job of jobs){if(!job?.id||!job.channelId||!job.messageId)continue;const state=db().giveawayState[job.id]||{endsAt:Number(job.endsAt),messageId:job.messageId,completed:0};if(job.status==='cancelled'){if(!state.cancelled){const ch=await client.channels.fetch(job.channelId).catch(()=>null),m=ch&&await ch.messages.fetch(state.messageId||job.messageId).catch(()=>null);if(m)await m.edit({embeds:[giveawayEmbed(job,db().giveawayEntries.filter(x=>x.giveawayId===job.id).length,state.endsAt,true,[])],components:[]}).catch(()=>{});update(d=>{d.giveawayState[job.id]={...state,cancelled:true};});}continue;}if(state.cancelled||state.completedFinal||Date.now()<state.endsAt)continue;const entries=db().giveawayEntries.filter(x=>x.giveawayId===job.id),pool=[];for(const entry of entries)for(let n=0;n<Math.min(101,1+(Number(entry.extraTickets)||0));n++)pool.push(entry.userId);const winners=[];while(pool.length&&winners.length<Math.min(Number(job.winnerCount)||1,new Set(entries.map(x=>x.userId)).size)){const pick=pool.splice(Math.floor(Math.random()*pool.length),1)[0];if(!winners.includes(pick))winners.push(pick);}const channel=await client.channels.fetch(job.channelId).catch(()=>null),message=channel&&await channel.messages.fetch(state.messageId||job.messageId).catch(()=>null);if(message)await message.edit({embeds:[giveawayEmbed(job,entries.length,state.endsAt,true,winners)],components:[]}).catch(e=>console.error('[Giveaway] Message edit:',e.message));if(channel?.isTextBased())await channel.send({content:winners.length?'🎉 Glückwunsch '+winners.map(id=>'<@'+id+'>').join(', ')+'! Ihr habt **'+job.prize+'** gewonnen.':'🎉 Giveaway beendet – es gab keine Teilnehmer.',allowedMentions:{users:winners}}).catch(()=>{});const completed=(state.completed||0)+1,canRepeat=job.repeatInterval&&job.repeatInterval!=='none'&&completed<=Number(job.repeatCount||0);if(canRepeat&&channel?.isTextBased()){const interval=job.repeatInterval==='daily'?86400000:job.repeatInterval==='weekly'?604800000:2592000000,endsAt=Date.now()+Math.max(1,Number(job.durationMinutes)||60)*60000,next=await channel.send({embeds:[giveawayEmbed(job,0,endsAt,false)],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('giveaway_join:'+job.id).setLabel('Teilnehmen').setEmoji('🎉').setStyle(ButtonStyle.Success))]}).catch(()=>null);if(next){update(d=>{d.giveawayState[job.id]={endsAt,messageId:next.id,completed,repeatAt:Date.now()+interval};d.giveawayEntries=d.giveawayEntries.filter(x=>x.giveawayId!==job.id);});}else update(d=>{d.giveawayState[job.id]={...state,completed,completedFinal:true};});}else update(d=>{d.giveawayState[job.id]={...state,completed,completedFinal:true};});}}
+let giveawayProcessing=false;
+async function processGiveaways(){
+ if(giveawayProcessing)return;giveawayProcessing=true;
+ try{
+  const jobs=db().config.giveawayJobs||[];
+  for(const job of jobs){
+   if(!job?.id||!job.channelId||!job.messageId)continue;
+   let state=db().giveawayState[job.id]||{endsAt:Number(job.endsAt),messageId:job.messageId,completed:0};
+   if(job.status==='cancelled'){
+    if(!state.cancelled){const ch=await client.channels.fetch(job.channelId).catch(()=>null),m=ch&&await ch.messages.fetch(state.messageId||job.messageId).catch(()=>null);if(m)await m.edit({embeds:[giveawayEmbed(job,db().giveawayEntries.filter(x=>x.giveawayId===job.id).length,state.endsAt,true,[])],components:[]}).catch(()=>{});update(d=>{d.giveawayState[job.id]={...state,cancelled:true};});}
+    continue;
+   }
+   if(state.cancelled||state.completedFinal)continue;
+   if(state.repeatAt&&Date.now()>=state.repeatAt){
+    const ch=await client.channels.fetch(job.channelId).catch(()=>null);
+    if(!ch?.isTextBased())continue;
+    const endsAt=Date.now()+Math.max(1,Number(job.durationMinutes)||60)*60000;
+    const msg=await ch.send({embeds:[giveawayEmbed(job,0,endsAt,false)],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('giveaway_join:'+job.id).setLabel('Teilnehmen').setEmoji('🎉').setStyle(ButtonStyle.Success))]}).catch(e=>{console.error('[Giveaway] Wiederholung fehlgeschlagen:',e.message);return null;});
+    if(msg){update(d=>{d.giveawayState[job.id]={endsAt,messageId:msg.id,completed:state.completed,repeatAt:null};d.giveawayEntries=d.giveawayEntries.filter(x=>x.giveawayId!==job.id);});}
+    continue;
+   }
+   if(Date.now()<state.endsAt)continue;
+   const entries=db().giveawayEntries.filter(x=>x.giveawayId===job.id),pool=[];
+   for(const entry of entries)for(let n=0;n<Math.min(101,1+(Number(entry.extraTickets)||0));n++)pool.push(entry.userId);
+   const winners=[];while(pool.length&&winners.length<Math.min(Number(job.winnerCount)||1,new Set(entries.map(x=>x.userId)).size)){const pick=pool.splice(Math.floor(Math.random()*pool.length),1)[0];if(!winners.includes(pick))winners.push(pick);}
+   const channel=await client.channels.fetch(job.channelId).catch(()=>null),message=channel&&await channel.messages.fetch(state.messageId||job.messageId).catch(()=>null);
+   if(message)await message.edit({embeds:[giveawayEmbed(job,entries.length,state.endsAt,true,winners)],components:[]}).catch(e=>console.error('[Giveaway] Nachricht konnte nicht aktualisiert werden:',e.message));
+   if(channel?.isTextBased())await channel.send({content:winners.length?'🎉 Glückwunsch '+winners.map(id=>'<@'+id+'>').join(', ')+'! Ihr habt **'+job.prize+'** gewonnen.':'🎉 Giveaway beendet – es gab keine Teilnehmer.',allowedMentions:{users:winners}}).catch(()=>{});
+   const completed=(state.completed||0)+1,canRepeat=job.repeatInterval&&job.repeatInterval!=='none'&&completed<=Number(job.repeatCount||0);
+   if(canRepeat){const interval=job.repeatInterval==='daily'?86400000:job.repeatInterval==='weekly'?604800000:2592000000;update(d=>{d.giveawayState[job.id]={...state,completed,repeatAt:Date.now()+interval};});}
+   else update(d=>{d.giveawayState[job.id]={...state,completed,completedFinal:true};});
+  }
+ }finally{giveawayProcessing=false;}
+}
 setInterval(()=>processGiveaways().catch(e=>console.error('[Giveaway scheduler]:',e)),15000).unref();
 async function register(){
  const rest=new REST({version:'10'}).setToken(process.env.DISCORD_TOKEN);
