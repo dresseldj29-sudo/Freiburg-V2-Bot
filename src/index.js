@@ -198,7 +198,7 @@ async function processGiveaways(){
     continue;
    }
    if(state.cancelled||state.completedFinal)continue;
-   if(state.repeatAt&&Date.now()>=state.repeatAt){
+   if(state.repeatAt){if(Date.now()<state.repeatAt)continue;
     const ch=await client.channels.fetch(job.channelId).catch(()=>null);
     if(!ch?.isTextBased())continue;
     const endsAt=Date.now()+Math.max(1,Number(job.durationMinutes)||60)*60000;
