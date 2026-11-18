@@ -19,7 +19,7 @@ async function processScheduledAnnouncements(){
    if(!channel?.isTextBased())throw new Error('Zielkanal nicht erreichbar');
    await channel.send({content:String(job.content||'').slice(0,1900),allowedMentions:{parse:[]}});
    update(d=>{d.announcementSentIds=Array.isArray(d.announcementSentIds)?d.announcementSentIds:[];if(!d.announcementSentIds.includes(job.id))d.announcementSentIds.push(job.id);});
-   console.log('[Ankündigung] Gesendet:',job.id);
+   if(CONFIG_URL&&CONFIG_SECRET){const sentUrl=CONFIG_URL.replace('/api/bot-config','/api/bot-announcement-sent');await fetch(sentUrl,{method:'POST',headers:{'content-type':'application/json','x-bot-config-secret':CONFIG_SECRET},body:JSON.stringify({id:job.id}),signal:AbortSignal.timeout(8000)}).catch(e=>console.error('[Ankündigung] Status-Sync:',e.message));}console.log('[Ankündigung] Gesendet:',job.id);
   }catch(e){console.error('[Ankündigung] Versand fehlgeschlagen:',job.id,e.message);}
  }
 }
