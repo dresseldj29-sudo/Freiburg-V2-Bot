@@ -13,12 +13,12 @@ async function syncRemoteConfig(){if(!CONFIG_URL||!CONFIG_SECRET||remoteConfigBu
 async function processScheduledAnnouncements(){
  const jobs=db().config.scheduledAnnouncements||[];
  for(const job of jobs){
-  if(!job||job.sentAt||!job.id||Date.parse(job.at)>Date.now())continue;
+  if(!job||!job.id||db().announcementSentIds?.includes(job.id)||Date.parse(job.at)>Date.now())continue;
   try{
    const channel=await client.channels.fetch(job.channelId).catch(()=>null);
    if(!channel?.isTextBased())throw new Error('Zielkanal nicht erreichbar');
    await channel.send({content:String(job.content||'').slice(0,1900),allowedMentions:{parse:[]}});
-   update(d=>{const item=(d.config.scheduledAnnouncements||[]).find(x=>x.id===job.id);if(item&&!item.sentAt)item.sentAt=new Date().toISOString();});
+   update(d=>{d.announcementSentIds=Array.isArray(d.announcementSentIds)?d.announcementSentIds:[];if(!d.announcementSentIds.includes(job.id))d.announcementSentIds.push(job.id);});
    console.log('[Ankündigung] Gesendet:',job.id);
   }catch(e){console.error('[Ankündigung] Versand fehlgeschlagen:',job.id,e.message);}
  }
