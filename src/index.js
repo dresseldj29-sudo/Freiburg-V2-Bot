@@ -541,7 +541,7 @@ if(i.isButton()){if(i.customId.startsWith('advent_open:')){const day=Number(i.cu
  const existing=db().factionApplications.find(x=>x.userId===i.user.id&&x.factionId===factionId&&x.status==='pending');
  if(existing)return i.reply({content:'Du hast bereits eine offene Bewerbung für diese Fraktion.',flags:MessageFlags.Ephemeral});
  const entry={id:require('crypto').randomUUID(),userId:i.user.id,factionId:f.id,factionName:f.name,reason:i.fields.getTextInputValue('reason'),status:'pending',createdAt:new Date().toISOString()};
- update(d=>{d.factionApplications.push(entry);});
+ update(d=>{d.factionApplications.push(entry);});if(CONFIG_URL&&CONFIG_SECRET){const appUrl=CONFIG_URL.replace('/api/bot-config','/api/bot-faction-application');fetch(appUrl,{method:'POST',headers:{'content-type':'application/json','x-bot-config-secret':CONFIG_SECRET},body:JSON.stringify(entry),signal:AbortSignal.timeout(8000)}).catch(e=>console.error('[Fraktion] Dashboard-Sync:',e.message));}
  const reviewId=db().config.factionReviewChannelId||db().config.applicationChannelId;
  const review=reviewId&&await client.channels.fetch(reviewId).catch(()=>null);
  if(review?.isTextBased()){
